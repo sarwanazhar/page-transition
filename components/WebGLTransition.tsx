@@ -6,36 +6,33 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "@/context/TransitionContext";
 
 const vertexShader = `
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
 `;
 
 const fragmentShader = `
-  uniform sampler2D uTexture;
-  uniform vec2 uMeshScale;
-  uniform vec2 uTextureScale;
-  uniform float uAlpha;
-  varying vec2 vUv;
-
-  void main() {
-    vec2 uv = vUv;
-    float meshAspect = uMeshScale.x / uMeshScale.y;
-    float textureAspect = uTextureScale.x / uTextureScale.y;
-
-    vec2 scale = vec2(1.0);
-    if (meshAspect > textureAspect) {
-      scale.y = textureAspect / meshAspect;
-    } else {
-      scale.x = meshAspect / textureAspect;
-    }
-
-    uv = (uv - 0.5) * scale + 0.5;
-    vec4 color = texture2D(uTexture, uv);
-    gl_FragColor = vec4(color.rgb, uAlpha);
+uniform sampler2D uTexture;
+uniform vec2 uMeshScale;
+uniform vec2 uTextureScale;
+uniform float uAlpha;
+varying vec2 vUv;
+void main() {
+  vec2 uv = vUv;
+  float meshAspect = uMeshScale.x / uMeshScale.y;
+  float textureAspect = uTextureScale.x / uTextureScale.y;
+  vec2 scale = vec2(1.0);
+  if (meshAspect > textureAspect) {
+    scale.y = textureAspect / meshAspect;
+  } else {
+    scale.x = meshAspect / textureAspect;
   }
+  uv = (uv - 0.5) * scale + 0.5;
+  vec4 color = texture2D(uTexture, uv);
+  gl_FragColor = vec4(color.rgb, uAlpha);
+}
 `;
 
 export default function WebGLTransition() {
@@ -45,17 +42,16 @@ export default function WebGLTransition() {
   const { transitionData, setTransitionData } = useTransition();
   const router = useRouter();
 
+  // Setup Three.js scene, camera, renderer, and animation loop
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // FIX: Globally disable Three.js automatic color conversions
-    // This stops it from modifying your texture or output colors.
     THREE.ColorManagement.enabled = false;
 
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const scene = new THREE.Scene();
 
+    const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(
       width / -2,
       width / 2,
@@ -73,7 +69,6 @@ export default function WebGLTransition() {
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
     containerRef.current.appendChild(renderer.domElement);
 
     const geometry = new THREE.PlaneGeometry(1, 1);
@@ -91,7 +86,6 @@ export default function WebGLTransition() {
 
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
-
     meshRef.current = mesh;
     materialRef.current = material;
 
@@ -111,6 +105,7 @@ export default function WebGLTransition() {
     };
   }, []);
 
+  // Handle transition trigger, texture setup, and GSAP timeline
   useEffect(() => {
     if (
       !transitionData.isActive ||
@@ -137,22 +132,25 @@ export default function WebGLTransition() {
     mat.uniforms.uMeshScale.value.set(initialWidth, initialHeight);
     mat.uniforms.uAlpha.value = 1.0;
 
+    // ✅ FIX 1: Draw image to offscreen canvas to prevent texture loss on DOM unmount
     if (sourceImage) {
-      const texture = new THREE.Texture(sourceImage);
+      const canvas = document.createElement("canvas");
+      canvas.width = sourceImage.naturalWidth;
+      canvas.height = sourceImage.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
+      }
 
-      // FIX: Disable texture color management so raw sRGB colors go straight to the shader
+      const texture = new THREE.Texture(canvas);
       texture.colorSpace = THREE.NoColorSpace;
-
       texture.minFilter = THREE.LinearFilter;
       texture.magFilter = THREE.LinearFilter;
       texture.generateMipmaps = false;
       texture.needsUpdate = true;
 
       mat.uniforms.uTexture.value = texture;
-      mat.uniforms.uTextureScale.value.set(
-        sourceImage.naturalWidth,
-        sourceImage.naturalHeight,
-      );
+      mat.uniforms.uTextureScale.value.set(canvas.width, canvas.height);
     }
 
     setTransitionData((prev) => ({ ...prev, isReady: true }));
