@@ -1,4 +1,5 @@
 "use client";
+
 import {
   createContext,
   useContext,
@@ -24,6 +25,8 @@ export interface TransitionData {
   styles: DOMStyles | null;
   sourceImage: HTMLImageElement | null;
   targetRoute: string | null;
+  effectType: number;
+  clickUv: { x: number; y: number } | null;
 }
 
 interface TransitionContextType {
@@ -35,16 +38,21 @@ const TransitionContext = createContext<TransitionContextType | undefined>(
   undefined,
 );
 
-export const TransitionProvider = ({ children }: { children: ReactNode }) => {
-  const [transitionData, setTransitionData] = useState<TransitionData>({
-    isActive: false,
-    isReady: false,
-    bounds: null,
-    styles: null,
-    sourceImage: null,
-    targetRoute: null,
-  });
+const initialTransitionData: TransitionData = {
+  isActive: false,
+  isReady: false,
+  bounds: null,
+  styles: null,
+  sourceImage: null,
+  targetRoute: null,
+  effectType: 0,
+  clickUv: null,
+};
 
+export const TransitionProvider = ({ children }: { children: ReactNode }) => {
+  const [transitionData, setTransitionData] = useState<TransitionData>(
+    initialTransitionData,
+  );
   return (
     <TransitionContext.Provider value={{ transitionData, setTransitionData }}>
       {children}
