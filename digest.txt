@@ -304,35 +304,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 FILE: app/page.tsx
 ================================================
 "use client";
-import React, { useRef, useEffect } from "react";
+import React, { useRef } from "react";
 import { useTransition } from "@/context/TransitionContext";
-import gsap from "gsap";
 
 export default function HomePage() {
   const gridRef = useRef<HTMLDivElement>(null);
-  const { transitionData, setTransitionData } = useTransition();
-
-  useEffect(() => {
-    if (!gridRef.current) return;
-
-    const activeAnchor = transitionData.targetRoute
-      ? gridRef.current.querySelector(`a[href="${transitionData.targetRoute}"]`)
-      : null;
-
-    if (transitionData.isReady && transitionData.isActive && activeAnchor) {
-      const img = activeAnchor.querySelector("img");
-      const textualOverlay = activeAnchor.querySelector(".card-details");
-      gsap.to([img, textualOverlay], { opacity: 0, duration: 0.01 });
-    } else if (!transitionData.isActive) {
-      const imgs = gridRef.current.querySelectorAll("img");
-      const textOverlays = gridRef.current.querySelectorAll(".card-details");
-      gsap.to([...imgs, ...textOverlays], { opacity: 1, duration: 0.2 });
-    }
-  }, [
-    transitionData.isReady,
-    transitionData.isActive,
-    transitionData.targetRoute,
-  ]);
+  const { setTransitionData } = useTransition();
 
   const handleImageProjectTransition = (
     e: React.MouseEvent<HTMLAnchorElement>,
@@ -341,7 +318,6 @@ export default function HomePage() {
     e.preventDefault();
     const anchor = e.currentTarget;
     const imgElement = anchor.querySelector("img");
-
     if (!imgElement) return;
 
     const bounds = anchor.getBoundingClientRect();
@@ -361,12 +337,11 @@ export default function HomePage() {
       <h1 className="text-xs uppercase tracking-widest text-zinc-500 mb-12">
         Selected Work
       </h1>
-
       <div
         ref={gridRef}
         className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl"
       >
-        {/* Project Card 01 - image.jpg */}
+        {/* Project Card 01 */}
         <a
           href="/project/podium-case"
           onClick={(e) =>
@@ -389,7 +364,7 @@ export default function HomePage() {
           </div>
         </a>
 
-        {/* Project Card 02 - red.jpg */}
+        {/* Project Card 02 */}
         <a
           href="/project/running-story"
           onClick={(e) =>
@@ -445,9 +420,10 @@ export default function ProjectPage() {
         <img
           src="/image.jpg"
           alt="Full screen background view"
+          decoding="sync"
+          fetchPriority="high"
           className="absolute inset-0 w-full h-full object-cover z-0"
         />
-
         <div className="flex justify-between items-center w-full relative z-10">
           <Link
             href="/"
@@ -509,9 +485,10 @@ export default function RunningStoryPage() {
         <img
           src="/red.jpg"
           alt="Full screen background view"
+          decoding="sync"
+          fetchPriority="high"
           className="absolute inset-0 w-full h-full object-cover z-0"
         />
-
         <div className="flex justify-between items-center w-full relative z-10">
           <Link
             href="/"
@@ -592,40 +569,37 @@ FILE: components/WebGLTransition.tsx
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import gsap from "gsap";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useTransition } from "@/context/TransitionContext";
 
 const vertexShader = `
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
 `;
 
 const fragmentShader = `
-  uniform sampler2D uTexture;
-  uniform vec2 uMeshScale;
-  uniform vec2 uTextureScale;
-  uniform float uAlpha;
-  varying vec2 vUv;
-
-  void main() {
-    vec2 uv = vUv;
-    float meshAspect = uMeshScale.x / uMeshScale.y;
-    float textureAspect = uTextureScale.x / uTextureScale.y;
-
-    vec2 scale = vec2(1.0);
-    if (meshAspect > textureAspect) {
-      scale.y = textureAspect / meshAspect;
-    } else {
-      scale.x = meshAspect / textureAspect;
-    }
-
-    uv = (uv - 0.5) * scale + 0.5;
-    vec4 color = texture2D(uTexture, uv);
-    gl_FragColor = vec4(color.rgb, uAlpha);
+uniform sampler2D uTexture;
+uniform vec2 uMeshScale;
+uniform vec2 uTextureScale;
+uniform float uAlpha;
+varying vec2 vUv;
+void main() {
+  vec2 uv = vUv;
+  float meshAspect = uMeshScale.x / uMeshScale.y;
+  float textureAspect = uTextureScale.x / uTextureScale.y;
+  vec2 scale = vec2(1.0);
+  if (meshAspect > textureAspect) {
+    scale.y = textureAspect / meshAspect;
+  } else {
+    scale.x = meshAspect / textureAspect;
   }
+  uv = (uv - 0.5) * scale + 0.5;
+  vec4 color = texture2D(uTexture, uv);
+  gl_FragColor = vec4(color.rgb, uAlpha);
+}
 `;
 
 export default function WebGLTransition() {
@@ -634,18 +608,18 @@ export default function WebGLTransition() {
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
   const { transitionData, setTransitionData } = useTransition();
   const router = useRouter();
+  const pathname = usePathname();
 
+  // 1. Setup Three.js scene, camera, renderer, and animation loop
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // FIX: Globally disable Three.js automatic color conversions
-    // This stops it from modifying your texture or output colors.
     THREE.ColorManagement.enabled = false;
 
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const scene = new THREE.Scene();
 
+    const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(
       width / -2,
       width / 2,
@@ -663,7 +637,6 @@ export default function WebGLTransition() {
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
     containerRef.current.appendChild(renderer.domElement);
 
     const geometry = new THREE.PlaneGeometry(1, 1);
@@ -681,9 +654,11 @@ export default function WebGLTransition() {
 
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
-
     meshRef.current = mesh;
     materialRef.current = material;
+
+    // Pre-compile shader to prevent first-click hitch
+    renderer.compile(scene, camera);
 
     let animationFrameId: number;
     const animate = () => {
@@ -701,9 +676,11 @@ export default function WebGLTransition() {
     };
   }, []);
 
+  // 2. Handle transition trigger and scaling up
   useEffect(() => {
     if (
       !transitionData.isActive ||
+      transitionData.isReady ||
       !meshRef.current ||
       !materialRef.current ||
       !transitionData.bounds
@@ -727,22 +704,25 @@ export default function WebGLTransition() {
     mat.uniforms.uMeshScale.value.set(initialWidth, initialHeight);
     mat.uniforms.uAlpha.value = 1.0;
 
+    // Use offscreen canvas to prevent texture loss on DOM unmount
     if (sourceImage) {
-      const texture = new THREE.Texture(sourceImage);
+      const canvas = document.createElement("canvas");
+      canvas.width = sourceImage.naturalWidth;
+      canvas.height = sourceImage.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
+      }
 
-      // FIX: Disable texture color management so raw sRGB colors go straight to the shader
+      const texture = new THREE.Texture(canvas);
       texture.colorSpace = THREE.NoColorSpace;
-
       texture.minFilter = THREE.LinearFilter;
       texture.magFilter = THREE.LinearFilter;
       texture.generateMipmaps = false;
       texture.needsUpdate = true;
 
       mat.uniforms.uTexture.value = texture;
-      mat.uniforms.uTextureScale.value.set(
-        sourceImage.naturalWidth,
-        sourceImage.naturalHeight,
-      );
+      mat.uniforms.uTextureScale.value.set(canvas.width, canvas.height);
     }
 
     setTransitionData((prev) => ({ ...prev, isReady: true }));
@@ -775,26 +755,48 @@ export default function WebGLTransition() {
       }
     });
 
-    tl.to(
-      mat.uniforms.uAlpha,
-      {
-        value: 0.0,
-        duration: 0.4,
-        ease: "power2.out",
-        onComplete: () => {
-          setTransitionData({
-            isActive: false,
-            isReady: false,
-            bounds: null,
-            styles: null,
-            sourceImage: null,
-            targetRoute: null,
-          });
-        },
-      },
-      "+=0.15",
-    );
-  }, [transitionData.isActive, setTransitionData, router]);
+    // Fade-out is intentionally removed from here.
+    // It is now handled by the pathname-synced useEffect below.
+  }, [
+    transitionData.isActive,
+    transitionData.isReady,
+    setTransitionData,
+    router,
+  ]);
+
+  // 3. Handle fading out ONLY after Next.js has successfully changed the route
+  useEffect(() => {
+    if (
+      transitionData.isActive &&
+      transitionData.isReady &&
+      pathname === transitionData.targetRoute
+    ) {
+      const mat = materialRef.current;
+      if (mat) {
+        gsap.to(mat.uniforms.uAlpha, {
+          value: 0.0,
+          duration: 0.4,
+          ease: "power2.out",
+          onComplete: () => {
+            setTransitionData({
+              isActive: false,
+              isReady: false,
+              bounds: null,
+              styles: null,
+              sourceImage: null,
+              targetRoute: null,
+            });
+          },
+        });
+      }
+    }
+  }, [
+    pathname,
+    transitionData.isActive,
+    transitionData.isReady,
+    transitionData.targetRoute,
+    setTransitionData,
+  ]);
 
   return (
     <div

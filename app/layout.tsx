@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <footer className="w-full py-8 text-center text-zinc-400 text-sm bg-black border-t border-white/10 relative z-10">
                 <p>
                   This website is by{" "}
-                  <a href="https://github.com/sarwanazhar">
+                  <a href="https://github.com/sarwanazhar/page-transition">
                     <span className="text-white font-medium tracking-wide">
                       sarwanazhar
                     </span>

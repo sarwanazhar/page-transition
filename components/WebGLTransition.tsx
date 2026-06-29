@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import gsap from "gsap";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useTransition } from "@/context/TransitionContext";
 
 const vertexShader = `
@@ -41,8 +41,9 @@ export default function WebGLTransition() {
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
   const { transitionData, setTransitionData } = useTransition();
   const router = useRouter();
+  const pathname = usePathname();
 
-  // Setup Three.js scene, camera, renderer, and animation loop
+  // 1. Setup Three.js scene, camera, renderer, and animation loop
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -89,6 +90,9 @@ export default function WebGLTransition() {
     meshRef.current = mesh;
     materialRef.current = material;
 
+    // Pre-compile shader to prevent first-click hitch
+    renderer.compile(scene, camera);
+
     let animationFrameId: number;
     const animate = () => {
       renderer.render(scene, camera);
@@ -105,10 +109,11 @@ export default function WebGLTransition() {
     };
   }, []);
 
-  // Handle transition trigger, texture setup, and GSAP timeline
+  // 2. Handle transition trigger and scaling up
   useEffect(() => {
     if (
       !transitionData.isActive ||
+      transitionData.isReady ||
       !meshRef.current ||
       !materialRef.current ||
       !transitionData.bounds
@@ -132,7 +137,7 @@ export default function WebGLTransition() {
     mat.uniforms.uMeshScale.value.set(initialWidth, initialHeight);
     mat.uniforms.uAlpha.value = 1.0;
 
-    // ✅ FIX 1: Draw image to offscreen canvas to prevent texture loss on DOM unmount
+    // Use offscreen canvas to prevent texture loss on DOM unmount
     if (sourceImage) {
       const canvas = document.createElement("canvas");
       canvas.width = sourceImage.naturalWidth;
@@ -183,26 +188,48 @@ export default function WebGLTransition() {
       }
     });
 
-    tl.to(
-      mat.uniforms.uAlpha,
-      {
-        value: 0.0,
-        duration: 0.4,
-        ease: "power2.out",
-        onComplete: () => {
-          setTransitionData({
-            isActive: false,
-            isReady: false,
-            bounds: null,
-            styles: null,
-            sourceImage: null,
-            targetRoute: null,
-          });
-        },
-      },
-      "+=0.15",
-    );
-  }, [transitionData.isActive, setTransitionData, router]);
+    // Fade-out is intentionally removed from here.
+    // It is now handled by the pathname-synced useEffect below.
+  }, [
+    transitionData.isActive,
+    transitionData.isReady,
+    setTransitionData,
+    router,
+  ]);
+
+  // 3. Handle fading out ONLY after Next.js has successfully changed the route
+  useEffect(() => {
+    if (
+      transitionData.isActive &&
+      transitionData.isReady &&
+      pathname === transitionData.targetRoute
+    ) {
+      const mat = materialRef.current;
+      if (mat) {
+        gsap.to(mat.uniforms.uAlpha, {
+          value: 0.0,
+          duration: 0.4,
+          ease: "power2.out",
+          onComplete: () => {
+            setTransitionData({
+              isActive: false,
+              isReady: false,
+              bounds: null,
+              styles: null,
+              sourceImage: null,
+              targetRoute: null,
+            });
+          },
+        });
+      }
+    }
+  }, [
+    pathname,
+    transitionData.isActive,
+    transitionData.isReady,
+    transitionData.targetRoute,
+    setTransitionData,
+  ]);
 
   return (
     <div

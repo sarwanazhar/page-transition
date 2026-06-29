@@ -22,9 +22,10 @@ export default function ProjectPage() {
         <img
           src="/image.jpg"
           alt="Full screen background view"
+          decoding="sync"
+          fetchPriority="high"
           className="absolute inset-0 w-full h-full object-cover z-0"
         />
-
         <div className="flex justify-between items-center w-full relative z-10">
           <Link
             href="/"

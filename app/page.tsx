@@ -1,33 +1,10 @@
 "use client";
-import React, { useRef, useEffect } from "react";
+import React, { useRef } from "react";
 import { useTransition } from "@/context/TransitionContext";
-import gsap from "gsap";
 
 export default function HomePage() {
   const gridRef = useRef<HTMLDivElement>(null);
-  const { transitionData, setTransitionData } = useTransition();
-
-  useEffect(() => {
-    if (!gridRef.current) return;
-
-    const activeAnchor = transitionData.targetRoute
-      ? gridRef.current.querySelector(`a[href="${transitionData.targetRoute}"]`)
-      : null;
-
-    if (transitionData.isReady && transitionData.isActive && activeAnchor) {
-      const img = activeAnchor.querySelector("img");
-      const textualOverlay = activeAnchor.querySelector(".card-details");
-      gsap.to([img, textualOverlay], { opacity: 0, duration: 0.01 });
-    } else if (!transitionData.isActive) {
-      const imgs = gridRef.current.querySelectorAll("img");
-      const textOverlays = gridRef.current.querySelectorAll(".card-details");
-      gsap.to([...imgs, ...textOverlays], { opacity: 1, duration: 0.2 });
-    }
-  }, [
-    transitionData.isReady,
-    transitionData.isActive,
-    transitionData.targetRoute,
-  ]);
+  const { setTransitionData } = useTransition();
 
   const handleImageProjectTransition = (
     e: React.MouseEvent<HTMLAnchorElement>,
@@ -36,7 +13,6 @@ export default function HomePage() {
     e.preventDefault();
     const anchor = e.currentTarget;
     const imgElement = anchor.querySelector("img");
-
     if (!imgElement) return;
 
     const bounds = anchor.getBoundingClientRect();
@@ -56,12 +32,11 @@ export default function HomePage() {
       <h1 className="text-xs uppercase tracking-widest text-zinc-500 mb-12">
         Selected Work
       </h1>
-
       <div
         ref={gridRef}
         className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl"
       >
-        {/* Project Card 01 - image.jpg */}
+        {/* Project Card 01 */}
         <a
           href="/project/podium-case"
           onClick={(e) =>
@@ -84,7 +59,7 @@ export default function HomePage() {
           </div>
         </a>
 
-        {/* Project Card 02 - red.jpg */}
+        {/* Project Card 02 */}
         <a
           href="/project/running-story"
           onClick={(e) =>
