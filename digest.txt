@@ -94,6 +94,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   allowedDevOrigins: ["192.168.100.9"],
+  output: "export", // Forces Next.js to build a purely client-side static site
+  images: {
+    unoptimized: true, // Required if you ever use Next.js <Image /> components in static mode
+  },
 };
 
 export default nextConfig;
@@ -170,7 +174,22 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <TransitionProvider>
           <SmoothScroll>
             <WebGLTransition />
-            <main className="relative z-10">{children}</main>
+            <main className="relative z-10">
+              {children}
+
+              {/* Footer Section */}
+              <footer className="w-full py-8 text-center text-zinc-400 text-sm bg-black border-t border-white/10 relative z-10">
+                <p>
+                  This website is by{" "}
+                  <a href="https://github.com/sarwanazhar">
+                    <span className="text-white font-medium tracking-wide">
+                      sarwanazhar
+                    </span>
+                  </a>
+                  . This is an example of page transition effect.
+                </p>
+              </footer>
+            </main>
           </SmoothScroll>
         </TransitionProvider>
       </body>
